@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { solveCaptcha } from './captchaSolver.js';
+import { solveCaptcha, cleanupTempFiles } from './captchaSolver.js';
 import config from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,10 +14,28 @@ const CAPTCHA_REFRESH_DELAY = 1000;
 
 async function clearScreenshotsFolder() {
   try {
-    await fs.rm(SCREENSHOTS_DIR, { recursive: true, force: true });
-    console.log('Screenshots folder cleared.');
+    const exists = await fs
+      .access(SCREENSHOTS_DIR)
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
+      console.log('Clearing screenshots folder...');
+      await fs.rm(SCREENSHOTS_DIR, { recursive: true, force: true });
+      console.log('Screenshots folder cleared.');
+    } else {
+      console.log('Screenshots folder does not exist. No need to clear.');
+    }
   } catch (error) {
-    console.error('Error clearing screenshots folder:', error);
+    console.error('Error while clearing screenshots folder:', error);
+  }
+}
+
+async function ensureScreenshotsDirExists() {
+  try {
+    await fs.mkdir(SCREENSHOTS_DIR, { recursive: true });
+    console.log('Screenshots directory ensured.');
+  } catch (error) {
+    console.error('Error while creating screenshots directory:', error);
   }
 }
 
@@ -188,7 +206,7 @@ function wait(ms) {
 async function main() {
   try {
     await clearScreenshotsFolder();
-    await fs.mkdir(SCREENSHOTS_DIR, { recursive: true });
+    await ensureScreenshotsDirExists();
     const loginSuccess = await loginFPG();
     console.log(
       loginSuccess
@@ -197,9 +215,10 @@ async function main() {
     );
   } catch (error) {
     console.error('主程序執行錯誤:', error);
+  } finally {
+    await cleanupTempFiles();
   }
 }
-
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }

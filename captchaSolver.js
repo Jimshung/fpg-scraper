@@ -1,11 +1,17 @@
 import fetch from 'node-fetch';
 import sharp from 'sharp';
 import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import config from './config.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const AZURE_VISION_URL = `${config.azureEndpoint}vision/v3.2/read/analyze`;
 const CAPTCHA_ANALYSIS_DELAY = 5000;
 const CAPTCHA_DIMENSIONS = { width: 200, height: 100 };
+const TEMP_FILES = ['captcha_original.png', 'captcha_resized.png'];
 
 async function solveCaptcha(imageBuffer) {
   try {
@@ -25,7 +31,7 @@ async function solveCaptcha(imageBuffer) {
 async function logOriginalImageMetadata(imageBuffer) {
   const metadata = await sharp(imageBuffer).metadata();
   console.log(`原始圖片尺寸: 寬度=${metadata.width}, 高度=${metadata.height}`);
-  await fs.writeFile('captcha_original.png', imageBuffer);
+  await fs.writeFile(path.join(__dirname, 'captcha_original.png'), imageBuffer);
 }
 
 async function resizeImage(imageBuffer) {
@@ -36,7 +42,10 @@ async function resizeImage(imageBuffer) {
       background: { r: 255, g: 255, b: 255, alpha: 1 },
     })
     .toBuffer();
-  await fs.writeFile('captcha_resized.png', resizedImageBuffer);
+  await fs.writeFile(
+    path.join(__dirname, 'captcha_resized.png'),
+    resizedImageBuffer
+  );
   return resizedImageBuffer;
 }
 
@@ -97,4 +106,17 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export { solveCaptcha };
+async function cleanupTempFiles() {
+  for (const file of TEMP_FILES) {
+    const filePath = path.join(__dirname, file);
+    try {
+      await fs.unlink(filePath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error(`Error deleting ${file}:`, error);
+      }
+    }
+  }
+}
+
+export { solveCaptcha, cleanupTempFiles };
