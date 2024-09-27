@@ -1,0 +1,25 @@
+{
+  "name": "fpg-automation",
+  "version": "1.0.0",
+  "description": "台塑標售網自動登入工具",
+  "main": "fpgAutomation.js",
+  "type": "module",
+  "scripts": {
+    "start": "node fpgAutomation.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "automation",
+    "login",
+    "captcha"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "node-cron": "^3.0.3",
+    "puppeteer": "^21.5.2",
+    "puppeteer-core": "^21.5.2",
+    "sharp": "^0.33.2"
+  }
+}

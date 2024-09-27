@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+
+# npm debug log
+npm-debug.log*
+
+# Environment variables
+.env
+
+# VSCode settings
+.vscode/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Screenshots and captcha images
+screenshots/
+captcha_original.png
+captcha_resized.png
+
+# Replit specific files
+.replit
+replit.nix
+replit_zip_error_log.txt
+
+# Caches
+.cache/
+.npm/
+
+# Logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Local environment folders
+.cache/
+.config/
+.local/
+
+# Ignore config file with sensitive information
+config.js
