@@ -20,14 +20,32 @@ class FPGAutomation {
       console.log('成功導航到標售公報頁面');
       await this.takeScreenshot('標售公報頁面');
 
-      const today = this.getTodayDate();
-      await this.selectDateRange(today, today);
-      await this.selectAnnouncementDate();
+      // const today = this.getTodayDate();
+      // await this.selectDateRange(today, today);
+      // await this.selectAnnouncementDate();
+
+      await this.inputCaseNumber('06-UR0M33');
       await this.performSearch();
 
       console.log('搜尋完成並已截圖');
     } catch (error) {
       console.error('搜尋過程中發生錯誤:', error);
+      throw error;
+    }
+  }
+
+  async inputCaseNumber(caseNumber) {
+    console.log(`輸入標售案號: ${caseNumber}`);
+    try {
+      // 選擇 "依標售案號" 選項
+      await this.page.click('input[type="radio"][value="radio1"]');
+
+      // 輸入案號
+      await this.page.type('input[name="tndsalno"]', caseNumber);
+
+      console.log('案號輸入完成');
+    } catch (error) {
+      console.error('輸入案號時發生錯誤:', error);
       throw error;
     }
   }
