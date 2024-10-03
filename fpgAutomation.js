@@ -34,24 +34,14 @@ class FPGAutomation {
 
   async clickSaleBulletinLink() {
     await this.page.waitForSelector('.menu_pos', { timeout: 10000 });
-    const linkFound = await this.page.evaluate(() => {
+    await this.page.evaluate(() => {
       const menuElement = document.querySelector('.menu_pos');
-      if (menuElement) {
-        const links = Array.from(menuElement.querySelectorAll('a'));
-        const targetLink = links.find((link) =>
-          link.textContent.includes('標售公報')
-        );
-        if (targetLink) {
-          targetLink.click();
-          return true;
-        }
-      }
-      return false;
+      const links = Array.from(menuElement.querySelectorAll('a'));
+      const targetLink = links.find((link) =>
+        link.textContent.includes('標售公報')
+      );
+      targetLink.click();
     });
-
-    if (!linkFound) {
-      throw new Error('未找到標售公報連結');
-    }
   }
 
   async selectDateRange(startDate, endDate) {

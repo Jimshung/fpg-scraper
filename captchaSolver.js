@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const AZURE_VISION_URL = `${config.azureEndpoint}vision/v3.2/read/analyze`;
-const CAPTCHA_ANALYSIS_DELAY = 5000;
+const CAPTCHA_ANALYSIS_DELAY = 2000;
 const CAPTCHA_DIMENSIONS = { width: 200, height: 100 };
 const TEMP_FILES = ['captcha_original.png', 'captcha_resized.png'];
 
