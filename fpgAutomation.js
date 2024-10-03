@@ -32,7 +32,7 @@ class FPGAutomation {
       await this.performSearch();
 
       await this.confirmSearchResults();
-      const isTaskCompleted = await this.refreshAndCheckCheckbox();
+      const isTaskCompleted = await this.clickCheckbox();
 
       if (isTaskCompleted) {
         console.log('任務完成，準備結束流程');
@@ -67,7 +67,7 @@ class FPGAutomation {
     }
   }
 
-  async refreshAndCheckCheckbox() {
+  async clickCheckbox() {
     try {
       const checkboxSelector =
         'input[type="checkbox"][name="item"][onclick="goCheck(this.form,this)"]';
@@ -81,14 +81,15 @@ class FPGAutomation {
           await this.page.keyboard.press('Escape');
         });
         console.log('已處理可能的彈出視窗');
-        return false;
+        await this.clickSaveButton();
+        return true;
       } else {
         console.log('未找到符合條件的 checkbox，準備點擊回主畫面按鈕');
         await this.clickBackToMainButton();
         return true;
       }
     } catch (error) {
-      console.error('重新整理頁面或處理 checkbox 時發生錯誤:', error);
+      console.error('處理 checkbox 時發生錯誤:', error);
       throw error;
     }
   }
@@ -107,6 +108,18 @@ class FPGAutomation {
       console.log('成功導航回主畫面');
     } catch (error) {
       console.error('點擊回主畫面按鈕時發生錯誤:', error);
+      throw error;
+    }
+  }
+
+  async clickSaveButton() {
+    try {
+      const backButtonSelector =
+        "input[type=\"button\"][value=\"轉報價作業\"][onclick=\"goSave(this.form,'all','ntidat','all','T')\"]";
+      await this.page.click(backButtonSelector);
+      console.log('成功導航轉報價作業');
+    } catch (error) {
+      console.error('點擊轉報價作業按鈕時發生錯誤:', error);
       throw error;
     }
   }
