@@ -4,6 +4,9 @@ import {
   ensureScreenshotsDirExists,
   takeScreenshot,
   wait,
+  clickElementByText,
+  getTodayDate,
+  handleDialog,
 } from './utils.js';
 import { cleanupTempFiles } from './captchaSolver.js';
 
@@ -24,12 +27,86 @@ class FPGAutomation {
       // await this.selectDateRange(today, today);
       // await this.selectAnnouncementDate();
 
+      // await this.inputCaseNumber('RT-UR01L9');
       await this.inputCaseNumber('06-UR0M33');
       await this.performSearch();
 
-      console.log('搜尋完成並已截圖');
+      await this.confirmSearchResults();
+      const isTaskCompleted = await this.refreshAndCheckCheckbox();
+
+      if (isTaskCompleted) {
+        console.log('任務完成，準備結束流程');
+        return true; // 表示任務已完成
+      }
+
+      console.log('繼續執行其他任務...');
+      // 在這裡可以添加其他任務的代碼
+
+      return false; // 表示還有其他任務需要執行
     } catch (error) {
       console.error('搜尋過程中發生錯誤:', error);
+      throw error;
+    }
+  }
+
+  async confirmSearchResults() {
+    console.log('確認搜尋結果頁面...');
+    try {
+      const pageTitle = await this.page.$eval(
+        'div[align="center"] font[color="#FFFFFF"] b',
+        (el) => el.textContent.trim()
+      );
+      if (pageTitle === '標售公報查詢清單') {
+        console.log('成功找到標售公報查詢清單頁面');
+      } else {
+        throw new Error('未找到預期的頁面標題');
+      }
+    } catch (error) {
+      console.error('確認搜尋結果頁面時發生錯誤:', error);
+      throw error;
+    }
+  }
+
+  async refreshAndCheckCheckbox() {
+    try {
+      const checkboxSelector =
+        'input[type="checkbox"][name="item"][onclick="goCheck(this.form,this)"]';
+      const checkbox = await this.page.$(checkboxSelector);
+
+      if (checkbox) {
+        console.log('找到符合條件的 checkbox，正在點擊...');
+        await handleDialog(this.page, async () => {
+          await checkbox.click();
+          await wait(1000);
+          await this.page.keyboard.press('Escape');
+        });
+        console.log('已處理可能的彈出視窗');
+        return false;
+      } else {
+        console.log('未找到符合條件的 checkbox，準備點擊回主畫面按鈕');
+        await this.clickBackToMainButton();
+        return true;
+      }
+    } catch (error) {
+      console.error('重新整理頁面或處理 checkbox 時發生錯誤:', error);
+      throw error;
+    }
+  }
+
+  async pressESC() {
+    console.log('模擬按下 ESC 鍵...');
+    await this.page.keyboard.press('Escape');
+    console.log('已按下 ESC 鍵');
+  }
+
+  async clickBackToMainButton() {
+    try {
+      const backButtonSelector =
+        'input[type="button"][value="回主畫面"][onclick="goSearch(this.form,\'srh\')"]';
+      await this.page.click(backButtonSelector);
+      console.log('成功導航回主畫面');
+    } catch (error) {
+      console.error('點擊回主畫面按鈕時發生錯誤:', error);
       throw error;
     }
   }
@@ -37,12 +114,8 @@ class FPGAutomation {
   async inputCaseNumber(caseNumber) {
     console.log(`輸入標售案號: ${caseNumber}`);
     try {
-      // 選擇 "依標售案號" 選項
       await this.page.click('input[type="radio"][value="radio1"]');
-
-      // 輸入案號
       await this.page.type('input[name="tndsalno"]', caseNumber);
-
       console.log('案號輸入完成');
     } catch (error) {
       console.error('輸入案號時發生錯誤:', error);
@@ -51,15 +124,7 @@ class FPGAutomation {
   }
 
   async clickSaleBulletinLink() {
-    await this.page.waitForSelector('.menu_pos', { timeout: 10000 });
-    await this.page.evaluate(() => {
-      const menuElement = document.querySelector('.menu_pos');
-      const links = Array.from(menuElement.querySelectorAll('a'));
-      const targetLink = links.find((link) =>
-        link.textContent.includes('標售公報')
-      );
-      targetLink.click();
-    });
+    await clickElementByText(this.page, '.menu_pos a', '標售公報');
   }
 
   async selectDateRange(startDate, endDate) {
@@ -131,14 +196,6 @@ class FPGAutomation {
     await this.takeScreenshot('搜尋結果');
   }
 
-  getTodayDate() {
-    const today = new Date();
-    return `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(
-      2,
-      '0'
-    )}/${String(today.getDate()).padStart(2, '0')}`;
-  }
-
   async takeScreenshot(name) {
     await takeScreenshot(this.page, name);
   }
@@ -155,8 +212,14 @@ async function main() {
     if (success) {
       console.log('自動化登入流程完成。');
       const automation = new FPGAutomation(page);
-      await automation.navigateToSaleBulletin();
-      // 這裡可以添加更多的流程...
+      const isTaskCompleted = await automation.navigateToSaleBulletin();
+
+      if (isTaskCompleted) {
+        console.log('所有任務已完成，準備關閉瀏覽器。');
+      } else {
+        console.log('還有其他任務需要執行，請在此處添加相應的代碼。');
+        // 在這裡可以添加其他任務的代碼
+      }
     } else {
       console.log('自動化登入流程失敗，請檢查日誌並重試。');
     }

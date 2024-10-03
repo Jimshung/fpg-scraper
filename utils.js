@@ -43,12 +43,44 @@ async function takeScreenshot(page, name) {
   console.log(`Screenshot saved: ${screenshotPath}`);
 }
 
+async function clickElementByText(page, selector, text) {
+  await page.evaluate(
+    (selector, text) => {
+      const elements = Array.from(document.querySelectorAll(selector));
+      const element = elements.find((el) => el.textContent.includes(text));
+      if (element) element.click();
+      else throw new Error(`未找到包含文字 "${text}" 的元素`);
+    },
+    selector,
+    text
+  );
+}
+
+async function handleDialog(page, action) {
+  page.on('dialog', async (dialog) => {
+    console.log('檢測到彈出視窗，正在關閉...');
+    await dialog.dismiss();
+  });
+  await action();
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getTodayDate() {
+  const today = new Date();
+  return `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(
+    2,
+    '0'
+  )}/${String(today.getDate()).padStart(2, '0')}`;
+}
+
 export {
   clearScreenshotsFolder,
+  clickElementByText,
+  handleDialog,
+  getTodayDate,
   ensureScreenshotsDirExists,
   takeScreenshot,
   wait,
