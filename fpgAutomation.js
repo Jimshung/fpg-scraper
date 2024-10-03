@@ -28,10 +28,15 @@ class FPGAutomation {
       // await this.selectAnnouncementDate();
 
       // await this.inputCaseNumber('RT-UR01L9');
-      await this.inputCaseNumber('06-UR0M33');
+      await this.inputCaseNumber('02-UQ1RX3');
       await this.performSearch();
 
-      await this.confirmSearchResults();
+      const searchResult = await this.confirmSearchResults();
+      if (!searchResult.success) {
+        console.log('搜尋未找到結果:', searchResult.message);
+        return true; // 或根據您的需求返回 false
+      }
+
       const isTaskCompleted = await this.clickCheckbox();
 
       if (isTaskCompleted) {
@@ -52,15 +57,38 @@ class FPGAutomation {
   async confirmSearchResults() {
     console.log('確認搜尋結果頁面...');
     try {
-      const pageTitle = await this.page.$eval(
-        'div[align="center"] font[color="#FFFFFF"] b',
-        (el) => el.textContent.trim()
+      // 等待可能出現的兩種元素
+      await this.page.waitForSelector(
+        'div[align="center"] font[color="#FFFFFF"] b, td[bgcolor="#FF9933"] font[color="#FFFFFF"]',
+        { timeout: 10000 }
       );
-      if (pageTitle === '標售公報查詢清單') {
+
+      // 檢查是否存在成功的查詢結果
+      const successTitle = await this.page
+        .$eval('div[align="center"] font[color="#FFFFFF"] b', (el) =>
+          el.textContent.trim()
+        )
+        .catch(() => null);
+
+      if (successTitle === '標售公報查詢清單') {
         console.log('成功找到標售公報查詢清單頁面');
-      } else {
-        throw new Error('未找到預期的頁面標題');
+        return { success: true, message: '查詢成功' };
       }
+
+      // 檢查是否存在錯誤訊息
+      const errorMessage = await this.page
+        .$eval('td[bgcolor="#FF9933"] font[color="#FFFFFF"]', (el) =>
+          el.textContent.trim()
+        )
+        .catch(() => null);
+
+      if (errorMessage && errorMessage.includes('找不到您輸入的案號')) {
+        console.log('查詢未找到結果：', errorMessage);
+        return { success: false, message: errorMessage };
+      }
+
+      // 如果兩種情況都沒有匹配，拋出錯誤
+      throw new Error('頁面內容不符合預期');
     } catch (error) {
       console.error('確認搜尋結果頁面時發生錯誤:', error);
       throw error;
