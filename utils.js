@@ -1,6 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { cleanupTempFiles } from './captchaSolver.js';
+import { closeBrowser } from './browserSetup.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,6 +66,36 @@ async function handleDialog(page, action) {
   await action();
 }
 
+async function initializeEnvironment() {
+  await clearScreenshotsFolder();
+  await ensureScreenshotsDirExists();
+}
+
+async function cleanup(browser) {
+  await cleanupTempFiles();
+  if (browser) {
+    await closeBrowser(browser);
+  }
+}
+
+async function pressESC(page) {
+  console.log('模擬按下 ESC 鍵...');
+  await page.keyboard.press('Escape');
+  console.log('已按下 ESC 鍵');
+}
+
+async function inputCaseNumber(page, caseNumber) {
+  console.log(`輸入標售案號: ${caseNumber}`);
+  try {
+    await page.click('input[type="radio"][value="radio1"]');
+    await page.type('input[name="tndsalno"]', caseNumber);
+    console.log('案號輸入完成');
+  } catch (error) {
+    console.error('輸入案號時發生錯誤:', error);
+    throw error;
+  }
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -84,4 +116,8 @@ export {
   ensureScreenshotsDirExists,
   takeScreenshot,
   wait,
+  initializeEnvironment,
+  cleanup,
+  pressESC,
+  inputCaseNumber,
 };

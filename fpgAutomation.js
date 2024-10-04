@@ -1,18 +1,26 @@
-import { loginFPG, closeBrowser } from './browserSetup.js';
+import { loginFPG } from './browserSetup.js';
 import {
-  clearScreenshotsFolder,
-  ensureScreenshotsDirExists,
   takeScreenshot,
   wait,
   clickElementByText,
-  getTodayDate,
   handleDialog,
+  initializeEnvironment,
+  cleanup,
+  pressESC,
+  inputCaseNumber,
 } from './utils.js';
-import { cleanupTempFiles } from './captchaSolver.js';
 
 class FPGAutomation {
   constructor(page) {
     this.page = page;
+  }
+
+  async pressESC() {
+    await pressESC(this.page);
+  }
+
+  async inputCaseNumber(caseNumber) {
+    await inputCaseNumber(this.page, caseNumber);
   }
 
   async navigateToSaleBulletin() {
@@ -152,18 +160,6 @@ class FPGAutomation {
     }
   }
 
-  async inputCaseNumber(caseNumber) {
-    console.log(`輸入標售案號: ${caseNumber}`);
-    try {
-      await this.page.click('input[type="radio"][value="radio1"]');
-      await this.page.type('input[name="tndsalno"]', caseNumber);
-      console.log('案號輸入完成');
-    } catch (error) {
-      console.error('輸入案號時發生錯誤:', error);
-      throw error;
-    }
-  }
-
   async clickSaleBulletinLink() {
     await clickElementByText(this.page, '.menu_pos a', '標售公報');
   }
@@ -245,8 +241,7 @@ class FPGAutomation {
 async function main() {
   let browser = null;
   try {
-    await clearScreenshotsFolder();
-    await ensureScreenshotsDirExists();
+    await initializeEnvironment();
     const { success, page, browser: loginBrowser } = await loginFPG();
     browser = loginBrowser;
 
@@ -267,10 +262,7 @@ async function main() {
   } catch (error) {
     console.error('主程序執行錯誤:', error);
   } finally {
-    await cleanupTempFiles();
-    if (browser) {
-      await closeBrowser(browser);
-    }
+    await cleanup(browser);
   }
 }
 
