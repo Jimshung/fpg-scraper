@@ -11,16 +11,43 @@ import {
 } from './utils.js';
 
 class FPGAutomation {
+  static SELECTORS = {
+    SALE_BULLETIN_LINK: '.menu_pos a',
+    SEARCH_RESULT:
+      'div[align="center"] font[color="#FFFFFF"] b, td[bgcolor="#FF9933"] font[color="#FFFFFF"]',
+    SUCCESS_TITLE: 'div[align="center"] font[color="#FFFFFF"] b',
+    ERROR_MESSAGE: 'td[bgcolor="#FF9933"] font[color="#FFFFFF"]',
+    CHECKBOX:
+      'input[type="checkbox"][name="item"][onclick="goCheck(this.form,this)"]',
+    CASE_NUMBER_RADIO: 'input[type="radio"][value="radio1"]',
+    CASE_NUMBER_INPUT: 'input[name="tndsalno"]',
+    SEARCH_BUTTON: 'input[type="button"][value="開始搜尋"]',
+    BACK_TO_MAIN_BUTTON:
+      'input[type="button"][value="回主畫面"][onclick="goSearch(this.form,\'srh\')"]',
+    SAVE_BUTTON:
+      "input[type=\"button\"][value=\"轉報價作業\"][onclick=\"goSave(this.form,'all','ntidat','all','T')\"]",
+  };
+
   constructor(page) {
     this.page = page;
+  }
+
+  async handleError(operation, error) {
+    console.error(`執行 ${operation} 時發生錯誤:`, error);
+    await this.takeScreenshot(`錯誤_${operation}`);
+    throw error;
   }
 
   async pressESC() {
     await pressESC(this.page);
   }
 
-  async inputCaseNumber(caseNumber) {
-    await inputCaseNumber(this.page, caseNumber);
+  async performCaseNumberInput(caseNumber) {
+    try {
+      await inputCaseNumber(this.page, caseNumber);
+    } catch (error) {
+      return this.handleError('輸入案號', error);
+    }
   }
 
   async navigateToSaleBulletin() {
@@ -36,7 +63,7 @@ class FPGAutomation {
       // await this.selectAnnouncementDate();
 
       // await this.inputCaseNumber('RT-UR01L9');
-      await this.inputCaseNumber('02-UQ1RX3');
+      await this.performCaseNumberInput('02-UQ1RX3');
       await this.performSearch();
 
       const searchResult = await this.confirmSearchResults();
@@ -57,8 +84,7 @@ class FPGAutomation {
 
       return false; // 表示還有其他任務需要執行
     } catch (error) {
-      console.error('搜尋過程中發生錯誤:', error);
-      throw error;
+      return this.handleError('導航到標售公報', error);
     }
   }
 
@@ -66,14 +92,13 @@ class FPGAutomation {
     console.log('確認搜尋結果頁面...');
     try {
       // 等待可能出現的兩種元素
-      await this.page.waitForSelector(
-        'div[align="center"] font[color="#FFFFFF"] b, td[bgcolor="#FF9933"] font[color="#FFFFFF"]',
-        { timeout: 10000 }
-      );
+      await this.page.waitForSelector(FPGAutomation.SELECTORS.SEARCH_RESULT, {
+        timeout: 10000,
+      });
 
       // 檢查是否存在成功的查詢結果
       const successTitle = await this.page
-        .$eval('div[align="center"] font[color="#FFFFFF"] b', (el) =>
+        .$eval(FPGAutomation.SELECTORS.SUCCESS_TITLE, (el) =>
           el.textContent.trim()
         )
         .catch(() => null);
@@ -85,7 +110,7 @@ class FPGAutomation {
 
       // 檢查是否存在錯誤訊息
       const errorMessage = await this.page
-        .$eval('td[bgcolor="#FF9933"] font[color="#FFFFFF"]', (el) =>
+        .$eval(FPGAutomation.SELECTORS.ERROR_MESSAGE, (el) =>
           el.textContent.trim()
         )
         .catch(() => null);
@@ -98,35 +123,31 @@ class FPGAutomation {
       // 如果兩種情況都沒有匹配，拋出錯誤
       throw new Error('頁面內容不符合預期');
     } catch (error) {
-      console.error('確認搜尋結果頁面時發生錯誤:', error);
-      throw error;
+      return this.handleError('確認搜尋結果', error);
     }
   }
 
   async clickCheckbox() {
     try {
-      const checkboxSelector =
-        'input[type="checkbox"][name="item"][onclick="goCheck(this.form,this)"]';
-      const checkbox = await this.page.$(checkboxSelector);
+      const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
 
-      if (checkbox) {
-        console.log('找到符合條件的 checkbox，正在點擊...');
-        await handleDialog(this.page, async () => {
-          await checkbox.click();
-          await wait(1000);
-          await this.page.keyboard.press('Escape');
-        });
-        console.log('已處理可能的彈出視窗');
-        await this.clickSaveButton();
-        return true;
-      } else {
+      if (!checkbox) {
         console.log('未找到符合條件的 checkbox，準備點擊回主畫面按鈕');
         await this.clickBackToMainButton();
         return true;
       }
+
+      console.log('找到符合條件的 checkbox，正在點擊...');
+      await handleDialog(this.page, async () => {
+        await checkbox.click();
+        await wait(1000);
+        await this.page.keyboard.press('Escape');
+      });
+      console.log('已處理可能的彈出視窗');
+      await this.clickSaveButton();
+      return true;
     } catch (error) {
-      console.error('處理 checkbox 時發生錯誤:', error);
-      throw error;
+      return this.handleError('處理 checkbox', error);
     }
   }
 
@@ -138,30 +159,32 @@ class FPGAutomation {
 
   async clickBackToMainButton() {
     try {
-      const backButtonSelector =
-        'input[type="button"][value="回主畫面"][onclick="goSearch(this.form,\'srh\')"]';
-      await this.page.click(backButtonSelector);
+      await this.page.click(FPGAutomation.SELECTORS.BACK_TO_MAIN_BUTTON);
       console.log('成功導航回主畫面');
     } catch (error) {
-      console.error('點擊回主畫面按鈕時發生錯誤:', error);
-      throw error;
+      return this.handleError('點擊回主畫面按鈕', error);
     }
   }
 
   async clickSaveButton() {
     try {
-      const backButtonSelector =
-        "input[type=\"button\"][value=\"轉報價作業\"][onclick=\"goSave(this.form,'all','ntidat','all','T')\"]";
-      await this.page.click(backButtonSelector);
+      await this.page.click(FPGAutomation.SELECTORS.SAVE_BUTTON);
       console.log('成功導航轉報價作業');
     } catch (error) {
-      console.error('點擊轉報價作業按鈕時發生錯誤:', error);
-      throw error;
+      return this.handleError('點擊轉報價作業按鈕', error);
     }
   }
 
   async clickSaleBulletinLink() {
-    await clickElementByText(this.page, '.menu_pos a', '標售公報');
+    try {
+      await clickElementByText(
+        this.page,
+        FPGAutomation.SELECTORS.SALE_BULLETIN_LINK,
+        '標售公報'
+      );
+    } catch (error) {
+      return this.handleError('點擊標售公報連結', error);
+    }
   }
 
   async selectDateRange(startDate, endDate) {
@@ -225,12 +248,16 @@ class FPGAutomation {
   }
 
   async performSearch() {
-    await Promise.all([
-      this.page.waitForNavigation({ waitUntil: 'networkidle0' }),
-      this.page.click('input[type="button"][value="開始搜尋"]'),
-    ]);
-    await this.page.waitForSelector('table', { timeout: 10000 });
-    await this.takeScreenshot('搜尋結果');
+    try {
+      await Promise.all([
+        this.page.waitForNavigation({ waitUntil: 'networkidle0' }),
+        this.page.click(FPGAutomation.SELECTORS.SEARCH_BUTTON),
+      ]);
+      await this.page.waitForSelector('table', { timeout: 10000 });
+      await this.takeScreenshot('搜尋結果');
+    } catch (error) {
+      return this.handleError('執行搜尋', error);
+    }
   }
 
   async takeScreenshot(name) {

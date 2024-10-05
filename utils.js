@@ -4,6 +4,11 @@ import { fileURLToPath } from 'url';
 import { cleanupTempFiles } from './captchaSolver.js';
 import { closeBrowser } from './browserSetup.js';
 
+const SELECTORS = {
+  CASE_NUMBER_RADIO: 'input[type="radio"][value="radio1"]',
+  CASE_NUMBER_INPUT: 'input[name="tndsalno"]',
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -15,15 +20,17 @@ async function clearScreenshotsFolder() {
       .access(SCREENSHOTS_DIR)
       .then(() => true)
       .catch(() => false);
-    if (exists) {
-      console.log('Clearing screenshots folder...');
-      await fs.rm(SCREENSHOTS_DIR, { recursive: true, force: true });
-      console.log('Screenshots folder cleared.');
-    } else {
-      console.log('Screenshots folder does not exist. No need to clear.');
+
+    if (!exists) {
+      console.log('Screenshots 資料夾不存在。無需清理。');
+      return;
     }
+
+    console.log('正在清理 Screenshots 資料夾...');
+    await fs.rm(SCREENSHOTS_DIR, { recursive: true, force: true });
+    console.log('Screenshots 資料夾已清理完成。');
   } catch (error) {
-    console.error('Error while clearing screenshots folder:', error);
+    console.error('清理 Screenshots 資料夾時發生錯誤:', error);
   }
 }
 
@@ -84,15 +91,19 @@ async function pressESC(page) {
   console.log('已按下 ESC 鍵');
 }
 
+/**
+ * 在指定的頁面上輸入案號
+ * @param {Page} page - Puppeteer 的 Page 對象
+ * @param {string} caseNumber - 要輸入的案號
+ */
 async function inputCaseNumber(page, caseNumber) {
-  console.log(`輸入標售案號: ${caseNumber}`);
   try {
-    await page.click('input[type="radio"][value="radio1"]');
-    await page.type('input[name="tndsalno"]', caseNumber);
+    await page.click(SELECTORS.CASE_NUMBER_RADIO);
+    await page.type(SELECTORS.CASE_NUMBER_INPUT, caseNumber);
     console.log('案號輸入完成');
   } catch (error) {
     console.error('輸入案號時發生錯誤:', error);
-    throw error;
+    throw error; // 或者根據需求進行錯誤處理
   }
 }
 
