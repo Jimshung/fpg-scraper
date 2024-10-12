@@ -66,11 +66,31 @@ async function clickElementByText(page, selector, text) {
 }
 
 async function handleDialog(page, action) {
-  page.on('dialog', async (dialog) => {
-    console.log('檢測到彈出視窗，正在關閉...');
-    await dialog.dismiss();
+  return new Promise(async (resolve, reject) => {
+    let dialogHandled = false;
+
+    const dialogHandler = async (dialog) => {
+      if (dialogHandled) return;
+      dialogHandled = true;
+      try {
+        await dialog.dismiss();
+        console.log('對話框已被成功關閉');
+      } catch (error) {
+        console.error('關閉對話框時發生錯誤:', error);
+      }
+    };
+
+    page.on('dialog', dialogHandler);
+
+    try {
+      await action();
+      resolve();
+    } catch (error) {
+      reject(error);
+    } finally {
+      page.removeListener('dialog', dialogHandler);
+    }
   });
-  await action();
 }
 
 async function initializeEnvironment() {
@@ -107,6 +127,33 @@ async function inputCaseNumber(page, caseNumber) {
   }
 }
 
+async function navigateToNextPage(page) {
+  const hasNextPage = await page.evaluate(() => {
+    const links = Array.from(document.querySelectorAll('a'));
+    const nextPageLink = links.find(
+      (link) => link.textContent.trim() === '下一頁'
+    );
+    if (nextPageLink) {
+      nextPageLink.click();
+      return true;
+    }
+    return false;
+  });
+
+  if (hasNextPage) {
+    await page.waitForNavigation({ waitUntil: 'networkidle0' });
+    console.log('已成功導航到下一頁');
+  } else {
+    console.log('沒有下一頁可跳轉');
+  }
+
+  return hasNextPage;
+}
+
+function isLastPage(currentPage, totalPages) {
+  return currentPage === totalPages;
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -131,4 +178,6 @@ export {
   cleanup,
   pressESC,
   inputCaseNumber,
+  isLastPage,
+  navigateToNextPage,
 };

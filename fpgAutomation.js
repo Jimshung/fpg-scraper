@@ -9,6 +9,8 @@ import {
   pressESC,
   inputCaseNumber,
   getTodayDate,
+  navigateToNextPage,
+  isLastPage,
 } from './utils.js';
 
 class FPGAutomation {
@@ -25,12 +27,200 @@ class FPGAutomation {
     SEARCH_BUTTON: 'input[type="button"][value="開始搜尋"]',
     BACK_TO_MAIN_BUTTON:
       'input[type="button"][value="回主畫面"][onclick="goSearch(this.form,\'srh\')"]',
+    RETURN_TO_LIST_BUTTON:
+      'input[type="button"][value="回主畫面"][onclick="goList(this.form)"]',
     SAVE_BUTTON:
       "input[type=\"button\"][value=\"轉報價作業\"][onclick=\"goSave(this.form,'all','ntidat','all','T')\"]",
   };
 
   constructor(page) {
     this.page = page;
+    this.options = {};
+  }
+
+  async hasNextPage() {
+    const nextPageLink = await this.page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a'));
+      return links.some((link) => link.textContent.trim() === '下一頁');
+    });
+    return nextPageLink;
+  }
+
+  async goToNextPage() {
+    const hasNextPage = await this.page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a'));
+      const nextPageLink = links.find(
+        (link) => link.textContent.trim() === '下一頁'
+      );
+      if (nextPageLink) {
+        nextPageLink.click();
+        return true;
+      }
+      return false;
+    });
+
+    if (hasNextPage) {
+      await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
+      console.log('已成功導航到下一頁');
+    } else {
+      console.log('沒有下一頁可跳轉');
+    }
+
+    return hasNextPage;
+  }
+
+  async handleMultiPageCheckboxSelection() {
+    let currentPage = 1;
+    const totalPages = await this.getTotalPages();
+
+    try {
+      while (currentPage <= totalPages) {
+        console.log(`正在處理第 ${currentPage}/${totalPages} 頁`);
+
+        const checkboxesFound = await this.selectAllCheckboxesOnCurrentPage();
+
+        if (checkboxesFound > 0) {
+          await this.handlePageWithCheckboxes(currentPage, totalPages);
+        } else {
+          await this.handlePageWithoutCheckboxes(currentPage, totalPages);
+        }
+
+        if (isLastPage(currentPage, totalPages)) break;
+
+        currentPage++;
+      }
+
+      console.log('所有頁面的複選框處理完畢');
+      await takeScreenshot(this.page, `所有頁面的複選框處理完畢`);
+    } catch (error) {
+      console.error('處理多頁複選框時發生錯誤:', error);
+      await takeScreenshot(this.page, `錯誤_處理多頁複選框`);
+      throw error; // 重新拋出錯誤，讓上層調用者知道發生了錯誤
+    }
+  }
+
+  async handlePageWithCheckboxes(currentPage, totalPages) {
+    await this.clickSaveButton();
+    console.log(`第 ${currentPage} 頁的選擇已保存`);
+
+    if (!isLastPage(currentPage, totalPages)) {
+      await this.reSearchAndGoToPage(currentPage + 1);
+    } else {
+      console.log('已處理完最後一頁，完成全部操作');
+    }
+  }
+
+  async handlePageWithoutCheckboxes(currentPage, totalPages) {
+    console.log(`第 ${currentPage} 頁沒有找到複選框`);
+    if (!isLastPage(currentPage, totalPages)) {
+      await navigateToNextPage(this.page);
+    } else {
+      console.log('最後一頁沒有複選框，返回主畫面');
+      await this.clickBackToMainButton();
+    }
+  }
+
+  async reSearchAndGoToPage(pageNumber) {
+    try {
+      console.log(`重新搜索並跳轉到第 ${pageNumber} 頁`);
+      await takeScreenshot(this.page, `重新搜索並跳轉到第 ${pageNumber} 頁`);
+      await this.page.click(FPGAutomation.SELECTORS.RETURN_TO_LIST_BUTTON);
+      await takeScreenshot(this.page, `按下RETURN_TO_LIST_BUTTON`);
+      // 等待搜索界面加載完成
+      await this.waitForSearchButtonReady();
+
+      // 重新執行搜索
+      console.log('開始重新執行搜索...');
+      const searchSuccess = await this.performSearch(this.options);
+
+      if (!searchSuccess) {
+        console.error('重新搜索失敗');
+        return false;
+      }
+
+      console.log('重新搜索成功，準備跳轉到指定頁面');
+
+      // 跳轉到指定頁數
+      await this.goToSpecificPage(pageNumber);
+
+      return true;
+    } catch (error) {
+      console.error(`重新搜索並跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
+      await takeScreenshot(
+        this.page,
+        `錯誤_重新搜索並跳轉到第 ${pageNumber} 頁`
+      );
+      throw error; // 重新拋出錯誤，讓上層調用者知道發生了錯誤
+    }
+  }
+
+  async goToSpecificPage(pageNumber) {
+    await this.page.evaluate((page) => {
+      document.querySelector('input[name="gtpage1"]').value = page;
+      document.querySelector('input[value="Go"]').click();
+    }, pageNumber);
+    await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
+    console.log(`已跳轉到第 ${pageNumber} 頁`);
+  }
+
+  async isCheckboxChecked(checkbox) {
+    return await this.page.evaluate((el) => {
+      // 檢查複選框是否被勾選
+      if (el.checked) return true;
+
+      // 檢查複選框的父元素是否有特定的類或屬性表示已勾選
+      const parent = el.closest('tr');
+      if (parent && parent.classList.contains('selected')) return true;
+
+      // 檢查是否有與複選框關聯的文本或圖標表示已勾選狀態
+      const label = parent.querySelector('label[for="' + el.id + '"]');
+      if (label && label.textContent.includes('已選擇')) return true;
+
+      return false;
+    }, checkbox);
+  }
+
+  async selectAllCheckboxesOnCurrentPage() {
+    const checkboxes = await this.page.$$(FPGAutomation.SELECTORS.CHECKBOX);
+    console.log(`當前頁面上找到 ${checkboxes.length} 個複選框`);
+
+    if (checkboxes.length === 0) {
+      return 0; // 返回 0 表示沒有找到複選框
+    }
+
+    for (let i = 0; i < checkboxes.length; i++) {
+      const checkbox = checkboxes[i];
+      try {
+        const isChecked = await this.isCheckboxChecked(checkbox);
+        if (isChecked) {
+          console.log(`第 ${i + 1} 個複選框已經被勾選，跳過`);
+          continue;
+        }
+
+        await handleDialog(this.page, async () => {
+          await checkbox.click();
+          await wait(1000);
+        });
+        await pressESC(this.page);
+        console.log(`成功處理第 ${i + 1} 個複選框`);
+      } catch (error) {
+        console.error(`處理第 ${i + 1} 個複選框時出錯:`, error);
+      }
+    }
+
+    console.log(`已嘗試選擇當前頁面上的所有未勾選的複選框`);
+    return checkboxes.length; // 返回找到的複選框數量
+  }
+
+  async getTotalPages() {
+    const totalPages = await this.page.evaluate(() => {
+      const input = document.querySelector('input[name="gtpage2"]');
+      const textAfterInput = input.nextSibling.textContent.trim();
+      const match = textAfterInput.match(/\/(\d+)頁/);
+      return match ? parseInt(match[1]) : 1;
+    });
+    console.log(`總頁數: ${totalPages}`);
+    return totalPages;
   }
 
   async handleError(operation, error) {
@@ -52,7 +242,17 @@ class FPGAutomation {
     }
   }
 
+  async waitForSearchButtonReady() {
+    // 等待搜索按鈕出現，這表示搜索界面已經準備好
+    await this.page.waitForSelector(FPGAutomation.SELECTORS.SEARCH_BUTTON, {
+      visible: true,
+      timeout: 10000,
+    });
+    console.log('搜索界面已準備就緒');
+  }
+
   async performSearch(options) {
+    this.options = options; // 保存搜索選項以便後續使用
     const { caseNumber, useDate, startDate, endDate } = options;
 
     try {
@@ -78,9 +278,11 @@ class FPGAutomation {
         return false;
       }
 
+      console.log('搜索成功完成');
       return true;
     } catch (error) {
-      return this.handleError('執行搜索', error);
+      console.error('執行搜索時發生錯誤:', error);
+      return false;
     }
   }
 
@@ -185,7 +387,7 @@ class FPGAutomation {
   }
 
   async selectAnnouncementDate() {
-    await this.page.click('input[type="radio"][value="ntidat"]');
+    await this.page.click('input[type="radio"][value="clodat"]');
   }
 
   async performCaseNumberInput(caseNumber) {
@@ -233,20 +435,27 @@ class FPGAutomation {
 
   async clickCheckbox() {
     try {
-      const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
-
-      if (!checkbox) {
-        console.log('未找到符合條件的 checkbox，準備點擊回主畫面按鈕');
-        await this.clickBackToMainButton();
+      if (this.options && this.options.useDate) {
+        await this.handleMultiPageCheckboxSelection();
         return true;
-      }
+      } else {
+        const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
+        const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
 
-      console.log('找到符合條件的 checkbox，正在點擊...');
-      await handleDialog(this.page, async () => {
-        await checkbox.click();
-        await wait(1000);
+        const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
+
+        if (!checkbox) {
+          console.log('未找到符合條件的 checkbox，準備點擊回主畫面按鈕');
+          await this.clickBackToMainButton();
+          return true;
+        }
+        console.log('找到符合條件的 checkbox，正在點擊...');
+        await handleDialog(this.page, async () => {
+          await checkbox.click();
+          await wait(1000);
+        });
         await pressESC(this.page);
-      });
+      }
       console.log('已處理可能的彈出視窗');
       await this.clickSaveButton();
       return true;

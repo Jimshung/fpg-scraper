@@ -30,7 +30,6 @@ async function solveCaptcha(imageBuffer) {
 
 async function logOriginalImageMetadata(imageBuffer) {
   const metadata = await sharp(imageBuffer).metadata();
-  console.log(`原始圖片尺寸: 寬度=${metadata.width}, 高度=${metadata.height}`);
   await fs.writeFile(path.join(__dirname, 'captcha_original.png'), imageBuffer);
 }
 
