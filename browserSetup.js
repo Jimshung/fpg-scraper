@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import { takeScreenshot, wait } from './utils.js';
 import { solveCaptcha } from './captchaSolver.js';
-import config from './config.js';
+import config from './configLoader.js';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const CAPTCHA_REFRESH_DELAY = 1000;
