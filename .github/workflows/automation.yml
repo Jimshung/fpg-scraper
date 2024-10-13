@@ -15,7 +15,7 @@ jobs:
     - name: 設置 Node.js 環境
       uses: actions/setup-node@v3
       with:
-        node-version: '18.17.0'
+        node-version: '20'  # 更新到 Node.js 20
 
     - name: 安裝相依套件
       run: npm ci
@@ -27,12 +27,20 @@ jobs:
         LOGIN_URL: ${{ secrets.LOGIN_URL }}
         FPG_USERNAME: ${{ secrets.FPG_USERNAME }}
         FPG_PASSWORD: ${{ secrets.FPG_PASSWORD }}
-      run: node fpgAutomation.js
+      run: |
+        node fpgAutomation.js || {
+          echo "腳本執行失敗，錯誤代碼: $?"
+          echo "錯誤日誌："
+          cat error.log  # 假設錯誤被寫入 error.log 文件
+          exit 1
+        }
 
-    - name: 上傳日誌檔案（如果有的話）
-      uses: actions/upload-artifact@v3  # 更新到 v3 版本
+    - name: 上傳日誌檔案
+      uses: actions/upload-artifact@v3
       if: always()
       with:
         name: execution-logs
-        path: logs/
-        if-no-files-found: ignore
+        path: |
+          logs/
+          error.log
+        if-no-files-found: warn
