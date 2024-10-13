@@ -4,5 +4,4 @@ export default {
   loginUrl: 'YOUR_LOGIN_URL',
   username: 'YOUR_USERNAME',
   password: 'YOUR_PASSWORD',
-  browserlessToken: 'YOUR_BROWSERLESS_TOKEN',
 };
