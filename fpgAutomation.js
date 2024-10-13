@@ -441,10 +441,6 @@ class FPGAutomation {
         return true;
       } else {
         const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
-        const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
-
-        const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
-
         if (!checkbox) {
           console.log('未找到符合條件的 checkbox，準備點擊回主畫面按鈕');
           await this.clickBackToMainButton();
