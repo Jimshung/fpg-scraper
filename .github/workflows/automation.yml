@@ -1,0 +1,41 @@
+name: FPG 自動化流程
+
+on:
+  schedule:
+    # 設定在台灣時間（UTC+8）每週一至週五上午 8:00 執行
+    # GitHub Actions 使用 UTC 時間，所以需要將時間往前調整 8 小時
+    - cron: '0 0 * * 1-5'  # UTC 時間 00:00，相當於台灣時間 08:00
+  workflow_dispatch:  # 允許手動觸發工作流程
+
+jobs:
+  run-automation:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 檢出程式碼
+      uses: actions/checkout@v2
+
+    - name: 設置 Node.js 環境
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18.17.0'
+
+    - name: 安裝相依套件
+      run: npm ci  # 使用 package-lock.json 來確保一致的安裝
+
+    - name: 執行自動化腳本
+      env:
+        # 設定環境變數，這些值會從 GitHub Secrets 中獲取
+        AZURE_ENDPOINT: ${{ secrets.AZURE_ENDPOINT }}
+        AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
+        LOGIN_URL: ${{ secrets.LOGIN_URL }}
+        FPG_USERNAME: ${{ secrets.FPG_USERNAME }}
+        FPG_PASSWORD: ${{ secrets.FPG_PASSWORD }}
+      run: node fpgAutomation.js  # 執行主要的自動化腳本
+
+    - name: 上傳日誌檔案（如果有的話）
+      uses: actions/upload-artifact@v2
+      if: always()  # 即使前面的步驟失敗，也會執行此步驟
+      with:
+        name: execution-logs
+        path: logs/  # 假設日誌儲存在 logs 目錄中
+        if-no-files-found: ignore  # 如果沒有日誌檔案，不會導致工作流程失敗
