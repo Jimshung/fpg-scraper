@@ -1,4 +1,5 @@
 import { loginFPG } from './browserSetup.js';
+import fs from 'fs';
 import {
   takeScreenshot,
   wait,
@@ -528,20 +529,37 @@ async function runAutomation(options) {
 }
 
 async function main() {
-  const today = getTodayDate();
+  try {
+    const today = getTodayDate();
 
-  const options = {
-    caseNumber: '',
-    useDate: true,
-    startDate: today,
-    endDate: today,
-  };
+    const options = {
+      caseNumber: '',
+      useDate: true,
+      startDate: today,
+      endDate: today,
+    };
 
-  await runAutomation(options);
+    await runAutomation(options);
+    console.log('自動化流程成功完成');
+  } catch (error) {
+    console.error('執行過程中發生錯誤:', error);
+    fs.appendFileSync('error.log', `執行過程中發生錯誤: ${error}\n`);
+    process.exit(1);
+  }
 }
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('未處理的 Promise 拒絕:', reason);
+  fs.appendFileSync('error.log', `未處理的 Promise 拒絕: ${reason}\n`);
+  process.exit(1);
+});
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  main().catch((error) => {
+    console.error('主程序執行失敗:', error);
+    fs.appendFileSync('error.log', `主程序執行失敗: ${error}\n`);
+    process.exit(1);
+  });
 }
 
 export { FPGAutomation, runAutomation, main };
