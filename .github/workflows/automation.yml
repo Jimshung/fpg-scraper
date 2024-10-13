@@ -15,10 +15,13 @@ jobs:
     - name: 設置 Node.js 環境
       uses: actions/setup-node@v3
       with:
-        node-version: '20'  # 更新到 Node.js 20
+        node-version: '18.17.0'  # 指定與本地環境相同的 Node.js 版本
 
     - name: 安裝相依套件
-      run: npm ci
+      run: |
+        npm cache clean --force
+        rm -rf node_modules package-lock.json
+        npm install
 
     - name: 執行自動化腳本
       env:
@@ -31,7 +34,7 @@ jobs:
         node fpgAutomation.js || {
           echo "腳本執行失敗，錯誤代碼: $?"
           echo "錯誤日誌："
-          cat error.log  # 假設錯誤被寫入 error.log 文件
+          cat error.log
           exit 1
         }
 
