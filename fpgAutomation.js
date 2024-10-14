@@ -441,6 +441,7 @@ class FPGAutomation {
         return true;
       } else {
         const checkbox = await this.page.$(FPGAutomation.SELECTORS.CHECKBOX);
+
         if (!checkbox) {
           console.log('未找到符合條件的 checkbox，準備點擊回主畫面按鈕');
           await this.clickBackToMainButton();
@@ -488,7 +489,24 @@ async function runAutomation(options) {
   let browser = null;
   try {
     await initializeEnvironment();
-    const { success, page, browser: loginBrowser } = await loginFPG();
+    const launchOptions = {
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu',
+      ],
+    };
+    const {
+      success,
+      page,
+      browser: loginBrowser,
+    } = await loginFPG(launchOptions);
     browser = loginBrowser;
 
     if (success) {
@@ -519,6 +537,10 @@ async function runAutomation(options) {
     }
   } catch (error) {
     console.error('自動化流程執行錯誤:', error);
+    fs.appendFileSync(
+      'error.log',
+      `自動化流程執行錯誤: ${error}\n${error.stack}\n`
+    );
   } finally {
     await cleanup(browser);
   }
@@ -539,7 +561,10 @@ async function main() {
     console.log('自動化流程成功完成');
   } catch (error) {
     console.error('執行過程中發生錯誤:', error);
-    fs.appendFileSync('error.log', `執行過程中發生錯誤: ${error}\n`);
+    fs.appendFileSync(
+      'error.log',
+      `執行過程中發生錯誤: ${error}\n${error.stack}\n`
+    );
     process.exit(1);
   }
 }

@@ -15,10 +15,11 @@ function findChromePath() {
   return paths[process.platform] || null;
 }
 
-async function launchBrowser() {
-  const options = getBrowserOptions();
+async function launchBrowser(options = {}) {
+  const defaultOptions = getBrowserOptions();
+  const mergedOptions = { ...defaultOptions, ...options };
   console.log('Launching browser...');
-  return await puppeteer.launch(options);
+  return await puppeteer.launch(mergedOptions);
 }
 
 function getBrowserOptions() {
@@ -141,8 +142,8 @@ async function refreshCaptcha(page) {
   }
 }
 
-async function loginFPG() {
-  const browser = await launchBrowser();
+async function loginFPG(launchOptions = {}) {
+  const browser = await launchBrowser(launchOptions);
   const page = await setupPage(browser);
 
   try {
