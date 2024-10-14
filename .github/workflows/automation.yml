@@ -2,7 +2,7 @@ name: FPG 自動化流程
 
 on:
   schedule:
-    - cron: '0 0 * * 1-5'  # UTC 時間 00:00，相當於台灣時間 08:00
+    - cron: '0 0 * * 1-5'  # 每個工作日（週一至週五）UTC 00:00 / 台灣時間 08:00 運行
   workflow_dispatch:  # 允許手動觸發工作流程
 
 jobs:
@@ -23,14 +23,6 @@ jobs:
         rm -rf node_modules package-lock.json
         npm install
 
-    - name: 檢查環境變數
-      run: |
-        echo "AZURE_ENDPOINT is set: ${{ secrets.AZURE_ENDPOINT != '' }}"
-        echo "AZURE_API_KEY is set: ${{ secrets.AZURE_API_KEY != '' }}"
-        echo "LOGIN_URL is set: ${{ secrets.LOGIN_URL != '' }}"
-        echo "FPG_USERNAME is set: ${{ secrets.FPG_USERNAME != '' }}"
-        echo "FPG_PASSWORD is set: ${{ secrets.FPG_PASSWORD != '' }}"
-
     - name: 執行自動化腳本
       env:
         AZURE_ENDPOINT: ${{ secrets.AZURE_ENDPOINT }}
@@ -46,12 +38,13 @@ jobs:
           exit 1
         }
 
-    - name: 上傳日誌檔案
+    - name: 上傳日誌和截圖
       uses: actions/upload-artifact@v3
       if: always()
       with:
-        name: execution-logs
+        name: automation-artifacts
         path: |
           logs/
+          screenshots/
           error.log
         if-no-files-found: warn
