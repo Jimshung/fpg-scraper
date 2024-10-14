@@ -15,13 +15,21 @@ jobs:
     - name: 設置 Node.js 環境
       uses: actions/setup-node@v3
       with:
-        node-version: '18.17.0'  # 指定與本地環境相同的 Node.js 版本
+        node-version: '18.17.0'
 
     - name: 安裝相依套件
       run: |
         npm cache clean --force
         rm -rf node_modules package-lock.json
         npm install
+
+    - name: 檢查環境變數
+      run: |
+        echo "AZURE_ENDPOINT is set: ${{ secrets.AZURE_ENDPOINT != '' }}"
+        echo "AZURE_API_KEY is set: ${{ secrets.AZURE_API_KEY != '' }}"
+        echo "LOGIN_URL is set: ${{ secrets.LOGIN_URL != '' }}"
+        echo "FPG_USERNAME is set: ${{ secrets.FPG_USERNAME != '' }}"
+        echo "FPG_PASSWORD is set: ${{ secrets.FPG_PASSWORD != '' }}"
 
     - name: 執行自動化腳本
       env:
