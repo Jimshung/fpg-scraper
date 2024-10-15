@@ -181,36 +181,41 @@ class FPGAutomation {
     }, checkbox);
   }
 
+  async retryOperation(operation, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        console.warn(`操作失敗，嘗試次數：${attempt}，錯誤：`, error.message);
+        if (attempt === maxRetries) throw error;
+        await wait(1000 * attempt); // 在重試之間等待越來越長的時間
+      }
+    }
+  }
+
   async selectAllCheckboxesOnCurrentPage() {
     const checkboxes = await this.page.$$(FPGAutomation.SELECTORS.CHECKBOX);
     console.log(`當前頁面上找到 ${checkboxes.length} 個複選框`);
 
-    if (checkboxes.length === 0) {
-      return 0; // 返回 0 表示沒有找到複選框
-    }
-
     for (let i = 0; i < checkboxes.length; i++) {
       const checkbox = checkboxes[i];
-      try {
+      await this.retryOperation(async () => {
         const isChecked = await this.isCheckboxChecked(checkbox);
         if (isChecked) {
           console.log(`第 ${i + 1} 個複選框已經被勾選，跳過`);
-          continue;
+          return;
         }
 
         await handleDialog(this.page, async () => {
           await checkbox.click();
           await wait(1000);
         });
-        await pressESC(this.page);
         console.log(`成功處理第 ${i + 1} 個複選框`);
-      } catch (error) {
-        console.error(`處理第 ${i + 1} 個複選框時出錯:`, error);
-      }
+      });
     }
 
     console.log(`已嘗試選擇當前頁面上的所有未勾選的複選框`);
-    return checkboxes.length; // 返回找到的複選框數量
+    return checkboxes.length;
   }
 
   async getTotalPages() {
@@ -531,14 +536,18 @@ async function main() {
     const options = {
       caseNumber: '',
       useDate: true,
-      startDate: today,
-      endDate: today,
+      startDate: '2024/10/17',
+      endDate: '2024/10/21',
     };
 
     await runAutomation(options);
     console.log('自動化流程成功完成');
   } catch (error) {
     console.error('執行過程中發生錯誤:', error);
+    if (error instanceof TypeError) {
+      console.error('可能是由於 Puppeteer 版本不兼容或 Page 物件無效導致');
+    }
+    // 可以根據需要添加更多具體的錯誤處理邏輯
     fs.appendFileSync('error.log', `執行過程中發生錯誤: ${error}\n`);
     process.exit(1);
   }
