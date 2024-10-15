@@ -388,7 +388,7 @@ class FPGAutomation {
   }
 
   async selectAnnouncementDate() {
-    await this.page.click('input[type="radio"][value="clodat"]');
+    await this.page.click('input[type="radio"][value="ntidat"]');
   }
 
   async performCaseNumberInput(caseNumber) {
