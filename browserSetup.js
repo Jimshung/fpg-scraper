@@ -22,19 +22,23 @@ async function launchBrowser() {
 }
 
 function getBrowserOptions() {
+  const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
+
   const options = {
-    headless: false,
+    headless: isGitHubActions ? 'new' : false,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
     defaultViewport: null,
     timeout: 30000,
   };
 
-  const chromePath = process.env.CHROME_PATH || findChromePath();
-  if (chromePath) {
-    console.log(`Using Chrome at: ${chromePath}`);
-    options.executablePath = chromePath;
-  } else {
-    console.log('Chrome path not found, using default Puppeteer browser');
+  if (!isGitHubActions) {
+    const chromePath = process.env.CHROME_PATH || findChromePath();
+    if (chromePath) {
+      console.log(`使用Chrome路徑: ${chromePath}`);
+      options.executablePath = chromePath;
+    } else {
+      console.log('未找到Chrome路徑，使用Puppeteer預設瀏覽器');
+    }
   }
 
   return options;
