@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node fpgAutomation.js",
+    "start:headless": "cross-env GITHUB_ACTIONS=true node fpgAutomation.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -16,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "minimist": "^1.2.8",
     "node-fetch": "^3.3.2",
     "puppeteer": "^23.5.3",
     "puppeteer-core": "^22.8.2",
@@ -23,5 +25,8 @@
   },
   "engines": {
     "node": ">=18.17.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
   }
 }

@@ -25,7 +25,7 @@ function getBrowserOptions() {
   const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
 
   const options = {
-    headless: isGitHubActions ? 'new' : false,
+    headless: config.headless ? 'new' : false,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
     defaultViewport: null,
     timeout: 30000,
@@ -51,6 +51,7 @@ async function setupPage(browser) {
 }
 
 async function navigateToLoginPage(page) {
+  console.log('🚀 ~ navigateToLoginPage ~ config:', config);
   console.log(`Navigating to ${config.loginUrl}`);
   await page.goto(config.loginUrl, { waitUntil: 'networkidle0' });
   await takeScreenshot(page, 'login_page');

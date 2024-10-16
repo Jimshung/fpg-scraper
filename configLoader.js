@@ -22,12 +22,8 @@ async function loadLocalConfig(configPath) {
 }
 
 async function loadConfig() {
-  const isGitHubActions = process.env.GITHUB_ACTIONS === 'true';
   const configPath = path.resolve(__dirname, './config.js');
-
-  console.log('運行環境:', isGitHubActions ? 'GitHub Actions' : '本地環境');
-
-  const localConfig = isGitHubActions ? {} : await loadLocalConfig(configPath);
+  const localConfig = await loadLocalConfig(configPath);
 
   const envConfig = {
     azureEndpoint: process.env.AZURE_ENDPOINT,
@@ -35,6 +31,8 @@ async function loadConfig() {
     loginUrl: process.env.LOGIN_URL,
     username: process.env.FPG_USERNAME,
     password: process.env.FPG_PASSWORD,
+    headless:
+      process.env.HEADLESS === 'true' || process.argv.includes('--headless'),
   };
 
   const filteredEnvConfig = Object.fromEntries(
@@ -48,7 +46,6 @@ async function loadConfig() {
   };
 
   console.log('配置加載完成');
-
   return finalConfig;
 }
 

@@ -1,3 +1,4 @@
+import minimist from 'minimist';
 import { loginFPG } from './browserSetup.js';
 import fs from 'fs';
 import {
@@ -14,6 +15,8 @@ import {
   isLastPage,
 } from './utils.js';
 
+const argv = minimist(process.argv.slice(2));
+const isHeadless = argv.headless || process.env.GITHUB_ACTIONS === 'true';
 class FPGAutomation {
   static SELECTORS = {
     SALE_BULLETIN_LINK: '.menu_pos a',
@@ -393,7 +396,7 @@ class FPGAutomation {
   }
 
   async selectAnnouncementDate() {
-    await this.page.click('input[type="radio"][value="clodat"]');
+    await this.page.click('input[type="radio"][value="ntidat"]');
   }
 
   async performCaseNumberInput(caseNumber) {
@@ -493,7 +496,7 @@ async function runAutomation(options) {
   let browser = null;
   try {
     await initializeEnvironment();
-    const { success, page, browser: loginBrowser } = await loginFPG();
+    const { success, page, browser: loginBrowser } = await loginFPG(isHeadless);
     browser = loginBrowser;
 
     if (success) {
@@ -536,11 +539,11 @@ async function main() {
     const options = {
       caseNumber: '',
       useDate: true,
-      startDate: '2024/10/17',
-      endDate: '2024/10/21',
+      startDate: today,
+      endDate: today,
     };
 
-    await runAutomation(options);
+    await runAutomation({ ...options, isHeadless });
     console.log('自動化流程成功完成');
   } catch (error) {
     console.error('執行過程中發生錯誤:', error);
