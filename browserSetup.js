@@ -17,7 +17,7 @@ function findChromePath() {
 
 async function launchBrowser() {
   const options = getBrowserOptions();
-  console.log('Launching browser...');
+  console.log('Browser options:', options);
   return await puppeteer.launch(options);
 }
 
@@ -51,7 +51,6 @@ async function setupPage(browser) {
 }
 
 async function navigateToLoginPage(page) {
-  console.log('🚀 ~ navigateToLoginPage ~ config:', config);
   console.log(`Navigating to ${config.loginUrl}`);
   await page.goto(config.loginUrl, { waitUntil: 'networkidle0' });
   await takeScreenshot(page, 'login_page');
