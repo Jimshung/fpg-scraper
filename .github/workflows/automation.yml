@@ -30,10 +30,19 @@ jobs:
         LOGIN_URL: ${{ secrets.LOGIN_URL }}
         FPG_USERNAME: ${{ secrets.FPG_USERNAME }}
         FPG_PASSWORD: ${{ secrets.FPG_PASSWORD }}
+        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+        PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable'
       run: |
-        node fpgAutomation.js || {
+        sudo apt-get update
+        sudo apt-get install -y wget gnupg
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        npm install puppeteer
+        xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" node fpgAutomation.js || {
           echo "腳本執行失敗，錯誤代碼: $?"
-          echo "錯誤日誌："
+          echo "錯誤日誌:"
           cat error.log
           exit 1
         }
