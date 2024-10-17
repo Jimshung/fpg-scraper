@@ -129,6 +129,7 @@ class FPGAutomation {
       console.log(`重新搜索並跳轉到第 ${pageNumber} 頁`);
       await takeScreenshot(this.page, `重新搜索並跳轉到第 ${pageNumber} 頁`);
       await this.page.click(FPGAutomation.SELECTORS.RETURN_TO_LIST_BUTTON);
+      await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
       await takeScreenshot(this.page, `按下RETURN_TO_LIST_BUTTON`);
       // 等待搜索界面加載完成
       await this.waitForSearchButtonReady();
@@ -147,6 +148,8 @@ class FPGAutomation {
       // 跳轉到指定頁數
       await this.goToSpecificPage(pageNumber);
 
+      // 添加額外的等待，確保頁面完全加載
+      await this.page.waitForTimeout(5000);
       return true;
     } catch (error) {
       console.error(`重新搜索並跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
@@ -154,17 +157,28 @@ class FPGAutomation {
         this.page,
         `錯誤_重新搜索並跳轉到第 ${pageNumber} 頁`
       );
-      throw error; // 重新拋出錯誤，讓上層調用者知道發生了錯誤
+      console.log('嘗試恢復操作...');
+      await this.page.reload({ waitUntil: 'networkidle0' });
+      await this.waitForSearchButtonReady();
+
+      throw error;
     }
   }
 
   async goToSpecificPage(pageNumber) {
-    await this.page.evaluate((page) => {
-      document.querySelector('input[name="gtpage1"]').value = page;
-      document.querySelector('input[value="Go"]').click();
-    }, pageNumber);
-    await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
-    console.log(`已跳轉到第 ${pageNumber} 頁`);
+    try {
+      await this.page.evaluate((page) => {
+        document.querySelector('input[name="gtpage1"]').value = page;
+        document.querySelector('input[value="Go"]').click();
+      }, pageNumber);
+      await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
+      console.log(`已跳轉到第 ${pageNumber} 頁`);
+      await this.page.waitForTimeout(3000);
+    } catch (error) {
+      console.error(`跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
+      await takeScreenshot(this.page, `錯誤_跳轉到第 ${pageNumber} 頁`);
+      throw error;
+    }
   }
 
   async isCheckboxChecked(checkbox) {
