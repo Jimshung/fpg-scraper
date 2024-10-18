@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import config from './configLoader.js';
+import { wait } from './utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,10 +100,6 @@ function processCaptchaText(text) {
 
 function isValidCaptcha(text) {
   return /^\d{4}$/.test(text);
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function cleanupTempFiles() {

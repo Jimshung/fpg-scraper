@@ -163,6 +163,47 @@ async function navigateToNextPage(page) {
   return hasNextPage;
 }
 
+async function waitForSelector(page, selector, timeout = 10000) {
+  await page.waitForSelector(selector, { timeout });
+}
+
+async function evaluateAndClick(page, selector) {
+  await page.evaluate((sel) => {
+    const element = document.querySelector(sel);
+    if (element) element.click();
+    else throw new Error(`未找到元素: ${sel}`);
+  }, selector);
+}
+
+async function goToSpecificPage(page, pageNumber) {
+  try {
+    await page.evaluate((page) => {
+      document.querySelector('input[name="gtpage1"]').value = page;
+      document.querySelector('input[value="Go"]').click();
+    }, pageNumber);
+    await page.waitForNavigation({ waitUntil: 'networkidle0' });
+    console.log(`已跳轉到第 ${pageNumber} 頁`);
+
+    await wait(3000);
+  } catch (error) {
+    console.error(`跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
+    await takeScreenshot(page, `錯誤_跳轉到第 ${pageNumber} 頁`);
+    throw error;
+  }
+}
+
+async function retryOperation(operation, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.warn(`操作失敗，嘗試次數：${attempt}，錯誤：`, error.message);
+      if (attempt === maxRetries) throw error;
+      await wait(1000 * attempt);
+    }
+  }
+}
+
 function isLastPage(currentPage, totalPages) {
   return currentPage === totalPages;
 }
@@ -193,4 +234,8 @@ export {
   inputCaseNumber,
   isLastPage,
   navigateToNextPage,
+  waitForSelector,
+  evaluateAndClick,
+  goToSpecificPage,
+  retryOperation,
 };

@@ -13,6 +13,10 @@ import {
   getTodayDate,
   navigateToNextPage,
   isLastPage,
+  waitForSelector,
+  evaluateAndClick,
+  goToSpecificPage,
+  retryOperation,
 } from './utils.js';
 
 const argv = minimist(process.argv.slice(2));
@@ -128,13 +132,14 @@ class FPGAutomation {
     try {
       console.log(`重新搜索並跳轉到第 ${pageNumber} 頁`);
       await takeScreenshot(this.page, `重新搜索並跳轉到第 ${pageNumber} 頁`);
-      await this.page.click(FPGAutomation.SELECTORS.RETURN_TO_LIST_BUTTON);
+      await evaluateAndClick(
+        this.page,
+        FPGAutomation.SELECTORS.RETURN_TO_LIST_BUTTON
+      );
       await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
       await takeScreenshot(this.page, `按下RETURN_TO_LIST_BUTTON`);
-      // 等待搜索界面加載完成
       await this.waitForSearchButtonReady();
 
-      // 重新執行搜索
       console.log('開始重新執行搜索...');
       const searchSuccess = await this.performSearch(this.options);
 
@@ -145,11 +150,9 @@ class FPGAutomation {
 
       console.log('重新搜索成功，準備跳轉到指定頁面');
 
-      // 跳轉到指定頁數
-      await this.goToSpecificPage(pageNumber);
+      await goToSpecificPage(this.page, pageNumber);
 
-      // 添加額外的等待，確保頁面完全加載
-      await this.page.waitForTimeout(5000);
+      await wait(5000);
       return true;
     } catch (error) {
       console.error(`重新搜索並跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
@@ -161,22 +164,6 @@ class FPGAutomation {
       await this.page.reload({ waitUntil: 'networkidle0' });
       await this.waitForSearchButtonReady();
 
-      throw error;
-    }
-  }
-
-  async goToSpecificPage(pageNumber) {
-    try {
-      await this.page.evaluate((page) => {
-        document.querySelector('input[name="gtpage1"]').value = page;
-        document.querySelector('input[value="Go"]').click();
-      }, pageNumber);
-      await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
-      console.log(`已跳轉到第 ${pageNumber} 頁`);
-      await this.page.waitForTimeout(3000);
-    } catch (error) {
-      console.error(`跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
-      await takeScreenshot(this.page, `錯誤_跳轉到第 ${pageNumber} 頁`);
       throw error;
     }
   }
@@ -216,7 +203,7 @@ class FPGAutomation {
 
     for (let i = 0; i < checkboxes.length; i++) {
       const checkbox = checkboxes[i];
-      await this.retryOperation(async () => {
+      await retryOperation(async () => {
         const isChecked = await this.isCheckboxChecked(checkbox);
         if (isChecked) {
           console.log(`第 ${i + 1} 個複選框已經被勾選，跳過`);
@@ -266,11 +253,11 @@ class FPGAutomation {
   }
 
   async waitForSearchButtonReady() {
-    // 等待搜索按鈕出現，這表示搜索界面已經準備好
-    await this.page.waitForSelector(FPGAutomation.SELECTORS.SEARCH_BUTTON, {
-      visible: true,
-      timeout: 10000,
-    });
+    await waitForSelector(
+      this.page,
+      FPGAutomation.SELECTORS.SEARCH_BUTTON,
+      10000
+    );
     console.log('搜索界面已準備就緒');
   }
 
