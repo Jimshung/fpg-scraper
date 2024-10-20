@@ -35,10 +35,6 @@ class FPGAutomation {
       await this.resultProcessor.processResults(options);
     }
   }
-
-  async takeScreenshot(name) {
-    await takeScreenshot(this.page, name);
-  }
 }
 
 class NavigationManager {
