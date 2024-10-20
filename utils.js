@@ -204,6 +204,12 @@ async function retryOperation(operation, maxRetries = 3) {
   }
 }
 
+async function handleError(page, operation, error) {
+  console.error(`執行 ${operation} 時發生錯誤:`, error);
+  await takeScreenshot(page, `錯誤_${operation}`);
+  throw error;
+}
+
 function isLastPage(currentPage, totalPages) {
   return currentPage === totalPages;
 }
@@ -238,4 +244,5 @@ export {
   evaluateAndClick,
   goToSpecificPage,
   retryOperation,
+  handleError,
 };
