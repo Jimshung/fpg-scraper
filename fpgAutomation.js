@@ -24,11 +24,12 @@ class FPGAutomation {
     this.options = {};
     this.navigationManager = new NavigationManager(page);
     this.searchManager = new SearchManager(page);
-    this.resultProcessor = new ResultProcessor(page);
+    this.resultProcessor = new ResultProcessor(page, this.options);
   }
 
   async run(options) {
     this.options = options;
+    this.resultProcessor.updateOptions(options);
     await this.navigationManager.navigateToSaleBulletin();
     const searchSuccess = await this.searchManager.performSearch(options);
     if (searchSuccess) {
@@ -72,7 +73,11 @@ class SearchManager {
     this.page = page;
   }
 
-  async performSearch(options) {
+  async performSearch(options = {}) {
+    if (!options || typeof options !== 'object') {
+      console.error('Invalid options provided to performSearch');
+      return false;
+    }
     const { caseNumber, useDate, startDate, endDate } = options;
 
     try {
@@ -230,8 +235,13 @@ class SearchManager {
 }
 
 class ResultProcessor {
-  constructor(page) {
+  constructor(page, options = {}) {
     this.page = page;
+    this.options = options;
+  }
+
+  updateOptions(newOptions) {
+    this.options = { ...this.options, ...newOptions };
   }
 
   async processResults(options) {
