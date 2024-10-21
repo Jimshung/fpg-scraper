@@ -67,7 +67,13 @@ async function clickElementByText(page, selector, text) {
 
 async function handleDialog(page, action, timeout = 5000) {
   return new Promise(async (resolve, reject) => {
+    let dialogHandled = false;
+    let timeoutId;
+
     const dialogHandler = async (dialog) => {
+      if (dialogHandled) return;
+      dialogHandled = true;
+      clearTimeout(timeoutId);
       try {
         await dialog.dismiss();
         console.log('對話框已被成功關閉');
@@ -80,20 +86,22 @@ async function handleDialog(page, action, timeout = 5000) {
 
     page.once('dialog', dialogHandler);
 
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
+    timeoutId = setTimeout(() => {
+      if (!dialogHandled) {
         console.log('對話框處理超時');
-        reject(new Error('對話框處理超時'));
-      }, timeout);
-    });
+        resolve();
+      }
+    }, timeout);
 
     try {
-      await Promise.race([action(), timeoutPromise]);
-      resolve();
+      await action();
+      if (!dialogHandled) {
+        clearTimeout(timeoutId);
+        resolve();
+      }
     } catch (error) {
+      clearTimeout(timeoutId);
       reject(error);
-    } finally {
-      page.removeListener('dialog', dialogHandler);
     }
   });
 }

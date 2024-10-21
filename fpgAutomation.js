@@ -19,6 +19,18 @@ import {
   validateSearchCriteria,
 } from './utils.js';
 
+const SELECTORS = {
+  SEARCH_RESULT:
+    'div[align="center"] font[color="#FFFFFF"] b, td[bgcolor="#FF9933"] font[color="#FFFFFF"]',
+  SUCCESS_TITLE: 'div[align="center"] font[color="#FFFFFF"] b',
+  ERROR_MESSAGE: 'td[bgcolor="#FF9933"] font[color="#FFFFFF"]',
+};
+
+const MESSAGES = {
+  SUCCESS_TITLE: '標售公報查詢清單',
+  NOT_FOUND: '找不到您輸入的案號',
+};
+
 class FPGAutomation {
   constructor(page) {
     this.page = page;
@@ -201,36 +213,55 @@ class SearchManager {
   async confirmSearchResults() {
     console.log('確認搜尋結果頁面...');
     try {
-      const selector =
-        'div[align="center"] font[color="#FFFFFF"] b, td[bgcolor="#FF9933"] font[color="#FFFFFF"]';
-      await this.page.waitForSelector(selector, { timeout: 10000 });
+      await Promise.race([
+        this.page.waitForSelector(SELECTORS.SEARCH_RESULT),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('等待搜尋結果超時')), 10000)
+        ),
+      ]);
 
-      const getElementText = async (selector) => {
-        return await this.page
-          .$eval(selector, (el) => el.textContent.trim())
-          .catch(() => null);
-      };
-
-      const successTitle = await getElementText(
-        'div[align="center"] font[color="#FFFFFF"] b'
-      );
-      if (successTitle === '標售公報查詢清單') {
-        console.log('成功找到標售公報查詢清單頁面');
-        return { success: true, message: '查詢成功' };
-      }
-
-      const errorMessage = await getElementText(
-        'td[bgcolor="#FF9933"] font[color="#FFFFFF"]'
-      );
-      if (errorMessage?.includes('找不到您輸入的案號')) {
-        console.log('查詢未找到結果：', errorMessage);
-        return { success: false, message: errorMessage };
-      }
-
-      throw new Error('頁面內容不符合預期');
+      const result = await this.getSearchResult();
+      return this.processSearchResult(result);
     } catch (error) {
-      await handleError(this.page, '確認搜尋結果', error);
+      return await this.handleConfirmError(error);
     }
+  }
+
+  async getSearchResult() {
+    const successTitle = await this.getElementText(SELECTORS.SUCCESS_TITLE);
+    if (successTitle === MESSAGES.SUCCESS_TITLE) {
+      return { success: true, message: '查詢成功' };
+    }
+
+    const errorMessage = await this.getElementText(SELECTORS.ERROR_MESSAGE);
+    if (errorMessage) {
+      return { success: false, message: errorMessage };
+    }
+
+    throw new Error('頁面內容不符合預期');
+  }
+
+  async getElementText(selector) {
+    return this.page
+      .$eval(selector, (el) => el.textContent.trim())
+      .catch(() => null);
+  }
+
+  processSearchResult(result) {
+    if (result.success) {
+      console.log('成功找到標售公報查詢清單頁面');
+    } else if (result.message.includes(MESSAGES.NOT_FOUND)) {
+      console.log('查詢未找到結果：', result.message);
+    } else {
+      console.log('搜尋結果異常：', result.message);
+    }
+    return result;
+  }
+
+  async handleConfirmError(error) {
+    console.error('確認搜尋結果時發生錯誤:', error.message);
+    await takeScreenshot(this.page, '錯誤_確認搜尋結果');
+    return { success: false, message: error.message };
   }
 }
 
