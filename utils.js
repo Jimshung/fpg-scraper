@@ -67,13 +67,7 @@ async function clickElementByText(page, selector, text) {
 
 async function handleDialog(page, action, timeout = 5000) {
   return new Promise(async (resolve, reject) => {
-    let dialogHandled = false;
-    let timeoutId;
-
     const dialogHandler = async (dialog) => {
-      if (dialogHandled) return;
-      dialogHandled = true;
-      clearTimeout(timeoutId);
       try {
         await dialog.dismiss();
         console.log('對話框已被成功關閉');
@@ -86,22 +80,20 @@ async function handleDialog(page, action, timeout = 5000) {
 
     page.once('dialog', dialogHandler);
 
-    timeoutId = setTimeout(() => {
-      if (!dialogHandled) {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
         console.log('對話框處理超時');
-        resolve(); // 或者根據需求使用 reject
-      }
-    }, timeout);
+        reject(new Error('對話框處理超時'));
+      }, timeout);
+    });
 
     try {
-      await action();
-      if (!dialogHandled) {
-        clearTimeout(timeoutId);
-        resolve();
-      }
+      await Promise.race([action(), timeoutPromise]);
+      resolve();
     } catch (error) {
-      clearTimeout(timeoutId);
       reject(error);
+    } finally {
+      page.removeListener('dialog', dialogHandler);
     }
   });
 }
@@ -225,13 +217,26 @@ function getTodayDate() {
     '0'
   )}/${String(today.getDate()).padStart(2, '0')}`;
 }
+function isValidCaseNumber(caseNumber) {
+  const caseNumberPattern = /^[A-Z0-9]{2}-[A-Z0-9]{5}$/;
+  return caseNumber && caseNumberPattern.test(caseNumber);
+}
+function validateSearchCriteria(caseNumber, useDate) {
+  if (caseNumber && !this.isValidCaseNumber(caseNumber)) {
+    console.error('案號格式無效，搜索終止');
+    return false;
+  }
+  if (!caseNumber && !useDate) {
+    console.error('未提供有效的搜索條件');
+    return false;
+  }
+  return true;
+}
 
 export {
-  clearScreenshotsFolder,
   clickElementByText,
   handleDialog,
   getTodayDate,
-  ensureScreenshotsDirExists,
   takeScreenshot,
   wait,
   initializeEnvironment,
@@ -245,4 +250,5 @@ export {
   goToSpecificPage,
   retryOperation,
   handleError,
+  validateSearchCriteria,
 };

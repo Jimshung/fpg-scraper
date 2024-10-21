@@ -1,21 +1,22 @@
 import { loginFPG } from './browserSetup.js';
 import {
-  takeScreenshot,
-  wait,
   clickElementByText,
   handleDialog,
+  getTodayDate,
+  takeScreenshot,
+  wait,
   initializeEnvironment,
   cleanup,
   pressESC,
   inputCaseNumber,
-  getTodayDate,
-  navigateToNextPage,
   isLastPage,
+  navigateToNextPage,
   waitForSelector,
   evaluateAndClick,
   goToSpecificPage,
   retryOperation,
   handleError,
+  validateSearchCriteria,
 } from './utils.js';
 
 class FPGAutomation {
@@ -74,46 +75,45 @@ class SearchManager {
   }
 
   async performSearch(options = {}) {
-    if (!options || typeof options !== 'object') {
-      console.error('Invalid options provided to performSearch');
-      return false;
-    }
     const { caseNumber, useDate, startDate, endDate } = options;
 
-    try {
-      if (caseNumber) {
-        if (this.isValidCaseNumber(caseNumber)) {
-          await this.performCaseNumberInput(caseNumber);
-        } else {
-          console.error('案號格式無效，搜索終止');
-          return false;
-        }
-      }
-
-      if (useDate) {
-        await this.selectDateRange(startDate, endDate);
-        await this.selectAnnouncementDate();
-      }
-
-      await this.clickSearchButton();
-
-      const searchResult = await this.confirmSearchResults();
-      if (!searchResult.success) {
-        console.log('搜尋未找到結果:', searchResult.message);
-        return false;
-      }
-
-      console.log('搜索成功完成');
-      return true;
-    } catch (error) {
-      console.error('執行搜索時發生錯誤:', error);
+    if (!validateSearchCriteria(caseNumber, useDate)) {
       return false;
+    }
+
+    try {
+      await this.inputSearchCriteria(caseNumber, useDate, startDate, endDate);
+      await this.clickSearchButton();
+      return await this.processSearchResults();
+    } catch (error) {
+      return await this.handleSearchError(error);
     }
   }
 
-  isValidCaseNumber(caseNumber) {
-    const caseNumberPattern = /^[A-Z0-9]{2}-[A-Z0-9]{5}$/;
-    return caseNumber && caseNumberPattern.test(caseNumber);
+  async inputSearchCriteria(caseNumber, useDate, startDate, endDate) {
+    if (caseNumber) {
+      await this.performCaseNumberInput(caseNumber);
+    }
+    if (useDate) {
+      await this.selectDateRange(startDate, endDate);
+      await this.selectAnnouncementDate();
+    }
+  }
+
+  async processSearchResults() {
+    const searchResult = await this.confirmSearchResults();
+    if (!searchResult.success) {
+      console.log('搜尋未找到結果:', searchResult.message);
+      return false;
+    }
+    console.log('搜索成功完成');
+    return true;
+  }
+
+  async handleSearchError(error) {
+    console.error('執行搜索時發生錯誤:', error);
+    await takeScreenshot(this.page, '搜索錯誤');
+    return false;
   }
 
   async performCaseNumberInput(caseNumber) {
