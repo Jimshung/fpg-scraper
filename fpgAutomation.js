@@ -12,11 +12,14 @@ import {
   isLastPage,
   navigateToNextPage,
   waitForSelector,
-  evaluateAndClick,
+  waitForPopupSelector,
+  waitForSelectorWithTimeout,
+  waitForPopupClosed,
   goToSpecificPage,
   retryOperation,
   handleError,
   validateSearchCriteria,
+  retryWithTimeout,
 } from './utils.js';
 
 const SELECTORS = {
@@ -156,9 +159,9 @@ class SearchManager {
       new Promise((resolve) => this.page.once('popup', resolve)),
       this.page.click(buttonSelector),
     ]);
-    await popup.waitForSelector('table', { timeout: 5000 });
+    await waitForPopupSelector(popup, 'table');
     await this.clickDateInPopup(popup, date);
-    await popup.waitForSelector('body', { hidden: true }).catch(() => {});
+    await waitForPopupClosed(popup);
   }
 
   async clickDateInPopup(popup, targetDate) {
@@ -174,14 +177,8 @@ class SearchManager {
   }
 
   async ensureDateInputsVisible() {
-    await this.page.waitForSelector('#date_f', {
-      visible: true,
-      timeout: 5000,
-    });
-    await this.page.waitForSelector('#date_e', {
-      visible: true,
-      timeout: 5000,
-    });
+    await waitForSelector(this.page, '#date_f');
+    await waitForSelector(this.page, '#date_e');
   }
 
   async verifySelectedDates(startDate, endDate) {
@@ -203,7 +200,7 @@ class SearchManager {
         this.page.waitForNavigation({ waitUntil: 'networkidle0' }),
         this.page.click('input[type="button"][value="開始搜尋"]'),
       ]);
-      await this.page.waitForSelector('table', { timeout: 10000 });
+      await waitForSelector(this.page, 'table', { timeout: 10000 });
       await takeScreenshot(this.page, '搜尋結果');
     } catch (error) {
       await handleError(this.page, '點擊搜索按鈕', error);
@@ -213,12 +210,11 @@ class SearchManager {
   async confirmSearchResults() {
     console.log('確認搜尋結果頁面...');
     try {
-      await Promise.race([
-        this.page.waitForSelector(SELECTORS.SEARCH_RESULT),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('等待搜尋結果超時')), 10000)
-        ),
-      ]);
+      await waitForSelectorWithTimeout(
+        this.page,
+        SELECTORS.SEARCH_RESULT,
+        10000
+      );
 
       const result = await this.getSearchResult();
       return this.processSearchResult(result);
@@ -403,51 +399,78 @@ class ResultProcessor {
       await this.clickBackToMainButton();
     }
   }
+  async navigateToMainScreen() {
+    return retryWithTimeout(
+      async () => {
+        await Promise.all([
+          this.page.waitForNavigation({ waitUntil: 'networkidle0' }),
+          this.page.click(
+            'input[type="button"][value="回主畫面"][onclick="goList(this.form)"]'
+          ),
+        ]);
+        await wait(2000);
+      },
+      3,
+      15000
+    );
+  }
 
+  async performNewSearch() {
+    return retryWithTimeout(
+      async () => {
+        await waitForSelector(
+          this.page,
+          'input[type="button"][value="開始搜尋"]',
+          {
+            visible: true,
+            timeout: 15000,
+          }
+        );
+
+        const searchManager = new SearchManager(this.page);
+        const searchSuccess = await searchManager.performSearch(this.options);
+
+        if (!searchSuccess) {
+          throw new Error('重新搜索失敗');
+        }
+
+        await wait(2000);
+      },
+      3,
+      30000
+    );
+  }
   async reSearchAndGoToPage(pageNumber) {
     try {
       console.log(`重新搜索並跳轉到第 ${pageNumber} 頁`);
       await takeScreenshot(this.page, `重新搜索並跳轉到第 ${pageNumber} 頁`);
-      await evaluateAndClick(
-        this.page,
-        'input[type="button"][value="回主畫面"][onclick="goList(this.form)"]'
+      // 步驟1: 回到主畫面
+      await this.navigateToMainScreen();
+      // 步驟2: 執行新的搜索
+      await this.performNewSearch();
+      await retryWithTimeout(
+        async () => await goToSpecificPage(this.page, pageNumber),
+        3,
+        20000
       );
-      await this.page.waitForNavigation({ waitUntil: 'networkidle0' });
-      await takeScreenshot(this.page, `按下RETURN_TO_LIST_BUTTON`);
-      await waitForSelector(
-        this.page,
-        'input[type="button"][value="開始搜尋"]'
-      );
 
-      console.log('開始重新執行搜索...');
-      const searchManager = new SearchManager(this.page);
-      const searchSuccess = await searchManager.performSearch(this.options);
-
-      if (!searchSuccess) {
-        console.error('重新搜索失敗');
-        return false;
-      }
-
-      console.log('重新搜索成功，準備跳轉到指定頁面');
-
-      await goToSpecificPage(this.page, pageNumber);
-
-      await wait(5000);
       return true;
     } catch (error) {
-      console.error(`重新搜索並跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
-      await takeScreenshot(
-        this.page,
-        `錯誤_重新搜索並跳轉到第 ${pageNumber} 頁`
-      );
-      console.log('嘗試恢復操作...');
-      await this.page.reload({ waitUntil: 'networkidle0' });
-      await waitForSelector(
-        this.page,
-        'input[type="button"][value="開始搜尋"]'
-      );
+      await this.handleReSearchError(error, pageNumber);
+      return false;
+    }
+  }
 
-      throw error;
+  async handleReSearchError(error, pageNumber) {
+    console.error(`重新搜索並跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
+    await takeScreenshot(this.page, `錯誤_重新搜索並跳轉到第 ${pageNumber} 頁`);
+
+    try {
+      console.log('嘗試恢復操作...');
+      await this.page.reload({ waitUntil: 'networkidle0', timeout: 30000 });
+      await wait(3000);
+    } catch (recoveryError) {
+      console.error('恢復操作失敗:', recoveryError);
     }
   }
 

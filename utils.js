@@ -162,34 +162,103 @@ async function navigateToNextPage(page) {
 
   return hasNextPage;
 }
-
-async function waitForSelector(page, selector, timeout = 10000) {
-  await page.waitForSelector(selector, { timeout });
+// 專門處理彈出視窗的 waitForSelector
+async function waitForPopupSelector(popup, selector, options = {}) {
+  const defaultOptions = {
+    visible: true,
+    timeout: 5000,
+  };
+  const finalOptions = { ...defaultOptions, ...options };
+  try {
+    await popup.waitForSelector(selector, finalOptions);
+  } catch (error) {
+    console.error(`等待彈出視窗元素 ${selector} 超時:`, error);
+    throw error;
+  }
+}
+async function waitForSelector(page, selector, options = {}) {
+  const defaultOptions = {
+    visible: true,
+    timeout: 10000,
+  };
+  const finalOptions = { ...defaultOptions, ...options };
+  try {
+    await page.waitForSelector(selector, finalOptions);
+  } catch (error) {
+    console.error(`等待元素 ${selector} 超時:`, error);
+    await takeScreenshot(page, `等待元素_${selector}_失敗`);
+    throw error;
+  }
 }
 
-async function evaluateAndClick(page, selector) {
-  await page.evaluate((sel) => {
-    const element = document.querySelector(sel);
-    if (element) element.click();
-    else throw new Error(`未找到元素: ${sel}`);
-  }, selector);
+// 用於需要 race 條件的等待
+async function waitForSelectorWithTimeout(page, selector, timeout = 10000) {
+  try {
+    await Promise.race([
+      page.waitForSelector(selector, { visible: true }),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`等待元素 ${selector} 超時`)),
+          timeout
+        )
+      ),
+    ]);
+  } catch (error) {
+    console.error(`等待元素 ${selector} 失敗:`, error);
+    await takeScreenshot(page, `等待元素_${selector}_失敗`);
+    throw error;
+  }
+}
+
+async function waitForElementHidden(page, selector, options = {}) {
+  const defaultOptions = {
+    hidden: true,
+    timeout: 5000,
+  };
+  const finalOptions = { ...defaultOptions, ...options };
+  try {
+    await page.waitForSelector(selector, finalOptions);
+    return true;
+  } catch (error) {
+    console.log(`等待元素 ${selector} 消失超時，但這是可接受的`);
+    return false;
+  }
+}
+
+async function waitForPopupClosed(popup) {
+  return waitForElementHidden(popup, 'body').catch(() => {
+    console.log('彈窗可能已關閉，繼續執行');
+    return true;
+  });
 }
 
 async function goToSpecificPage(page, pageNumber) {
-  try {
-    await page.evaluate((page) => {
-      document.querySelector('input[name="gtpage1"]').value = page;
-      document.querySelector('input[value="Go"]').click();
-    }, pageNumber);
-    await page.waitForNavigation({ waitUntil: 'networkidle0' });
-    console.log(`已跳轉到第 ${pageNumber} 頁`);
+  return retryWithTimeout(
+    async () => {
+      await Promise.all([
+        waitForSelector(page, 'input[name="gtpage1"]'),
+        waitForSelector(page, 'input[value="Go"]'),
+      ]);
 
-    await wait(3000);
-  } catch (error) {
-    console.error(`跳轉到第 ${pageNumber} 頁時發生錯誤:`, error);
-    await takeScreenshot(page, `錯誤_跳轉到第 ${pageNumber} 頁`);
-    throw error;
-  }
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'networkidle0' }),
+        page.evaluate((targetPage) => {
+          const pageInput = document.querySelector('input[name="gtpage1"]');
+          const goButton = document.querySelector('input[value="Go"]');
+          if (!pageInput || !goButton)
+            throw new Error('無法找到頁碼輸入框或 Go 按鈕');
+
+          pageInput.value = targetPage;
+          goButton.click();
+        }, pageNumber),
+      ]);
+
+      console.log(`已跳轉到第 ${pageNumber} 頁`);
+      await wait(3000);
+    },
+    3,
+    20000
+  );
 }
 
 async function retryOperation(operation, maxRetries = 3) {
@@ -208,6 +277,26 @@ async function handleError(page, operation, error) {
   console.error(`執行 ${operation} 時發生錯誤:`, error);
   await takeScreenshot(page, `錯誤_${operation}`);
   throw error;
+}
+
+async function retryWithTimeout(operation, maxRetries = 3, timeout = 30000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await Promise.race([
+        operation(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('操作超時')), timeout)
+        ),
+      ]);
+    } catch (error) {
+      console.warn(
+        `操作失敗，嘗試次數：${attempt}/${maxRetries}，錯誤：`,
+        error.message
+      );
+      if (attempt === maxRetries) throw error;
+      await wait(1000 * attempt);
+    }
+  }
 }
 
 function isLastPage(currentPage, totalPages) {
@@ -254,9 +343,12 @@ export {
   isLastPage,
   navigateToNextPage,
   waitForSelector,
-  evaluateAndClick,
+  waitForPopupSelector,
+  waitForSelectorWithTimeout,
+  waitForPopupClosed,
   goToSpecificPage,
   retryOperation,
   handleError,
   validateSearchCriteria,
+  retryWithTimeout,
 };
